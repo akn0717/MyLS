@@ -78,11 +78,9 @@ void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mo
     if (depth >= 1)
     {
         printf("\n");
-    }
-    if (mode_R)
-    {
         printf("%s:\n", path_name);
     }
+    
     struct dirent **name_list;
     int n = scandir(path_name, &name_list, NULL, alphasort);
     struct stat statbuf;
@@ -91,29 +89,30 @@ void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mo
     {
         if (name_list[i]->d_name[0] !=  '.')
         {
-            if (mode_l)
+            if (mode_l || mode_i)
             {
                 char *path_file = path_join(path_name, name_list[i]->d_name);
                 
                 stat(path_file, &statbuf);
                 if (mode_i)
                 {
-                    printf("%ld ", name_list[i]->d_ino);
+                    printf("%ld\t", name_list[i]->d_ino);
                 }
-                print_permission(statbuf.st_mode);
+                if (mode_l)
+                {
+                    print_permission(statbuf.st_mode);
 
-                char *user_name = get_username(statbuf.st_uid);
-                char *group_name = get_groupname(statbuf.st_gid);
+                    char *user_name = get_username(statbuf.st_uid);
+                    char *group_name = get_groupname(statbuf.st_gid);
 
-                char *time = time_parsing(statbuf.st_mtim.tv_sec);
-                printf("  %ld  %s  %s %5ld  %s  ", statbuf.st_nlink, user_name, group_name, statbuf.st_size, time);
+                    char *time = time_parsing(statbuf.st_mtim.tv_sec);
+                    printf("\t%ld\t%s\t%s\t%5ld\t%s\t", statbuf.st_nlink, user_name, group_name, statbuf.st_size, time);
 
-
+                    free(user_name);
+                    free(group_name);
+                    free(time);
+                }
                 free(path_file);
-                free(user_name);
-                free(group_name);
-                free(time);
-
             }
             printf("%s", name_list[i]->d_name);
             if (mode_l || i==n-1) 
@@ -122,7 +121,7 @@ void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mo
             }
             else if (!mode_l && i!=n-1)
             {
-                printf(" ");
+                printf("\t");
             }
         }
     }
@@ -157,39 +156,32 @@ int parsing(int argc,
             int *paths_size,
             int *max_paths_size)
 {
-    printf("Program name : %s\n", argv[0]);
     if (argc > 1)
     {
-        for(int i=0; i<argc; i++)
+        for(int i=1; i<argc; i++)
         {
             size_t length = strlen(argv[i]);
             if (argv[i][0] == '-')
             {
                 for (int j=0; j < length; j++)
                 {
-                    printf("%c\n", argv[i][j]);    /* Print each character of the string. */
-                    if(argv[i][j] == 'i')
-                    {*mode_i = 1;}
-                    else if(argv[i][j] == 'l')
-                    {*mode_l = 1;}
-                    else if(argv[i][j] == 'R')
-                    {*mode_R = 1;}
+                    if(argv[i][j] == 'i') *mode_i = 1;
+                    else if(argv[i][j] == 'l') *mode_l = 1;
+                    else if(argv[i][j] == 'R') *mode_R = 1;
                 }
             }
             else
             {
                 if(paths_size+1 > max_paths_size){
                     paths = realloc(paths, 2*(*max_paths_size));
-                    max_paths_size = (*max_paths_size) * 2;
+                    (*max_paths_size) = (*max_paths_size) * 2;
                 }
-                paths[i] = argv[i];
-                printf("string %d = %s \n", i, argv[i]);
+                paths[*paths_size] = argv[i];
+                ++(*paths_size);
             }
         }
     }
-    printf("i = %d\n", mode_i);
-    printf("l = %d\n", mode_l);
-    printf("R = %d\n", mode_R);
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -200,37 +192,14 @@ int main(int argc, char **argv)
     int paths_size = 0;
     char **path_strings = malloc(sizeof(char*)*1);
     int max_paths_size = 1;
-    parsing(&argc, &argv, &mode_i, 
-            &mode_l, &mode_R, &path_strings, 
+    parsing(argc, argv, &mode_i, 
+            &mode_l, &mode_R, path_strings, 
             &paths_size, &max_paths_size);
 
-
-    printf("Program name : %s\n", argv[0]);
-    if (argc > 1)
+    for (int i=0;i<paths_size;++i)
     {
-        for(int i=0; i<argc; i++)
-        {
-            size_t length = strlen(argv[i]);
-            if (argv[i][0] == '-')
-            {
-                for (int j=0; j < length; j++)
-                {
-                    printf("%c\n", argv[i][j]);    /* Print each character of the string. */
-                    if(argv[i][j] == 'i')
-                    {mode_i = 1;}
-                    else if(argv[i][j] == 'l')
-                    {mode_l = 1;}
-                    else if(argv[i][j] == 'R')
-                    {mode_R = 1;}
-                }
-            }
-            else
-            {
-                printf("string %d = %s \n", i, argv[i]);
-            }
-        }
-
-    char path_name[1024] = ".";
-    get_current_info(0, path_name, 1,1, 1);
+        get_current_info(0, path_strings[i], mode_i, mode_l, mode_R);
+    }
+    free(path_strings);
     return 0;
 }
