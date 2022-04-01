@@ -195,10 +195,16 @@ int main(int argc, char **argv)
     parsing(argc, argv, &mode_i, 
             &mode_l, &mode_R, path_strings, 
             &paths_size, &max_paths_size);
-
-    for (int i=0;i<paths_size;++i)
+    if (paths_size > 0)
     {
-        get_current_info(0, path_strings[i], mode_i, mode_l, mode_R);
+        for (int i=0;i<paths_size;++i)
+        {
+            get_current_info(0, path_strings[i], mode_i, mode_l, mode_R);
+        }
+    }
+    else 
+    {
+        get_current_info(0, ".", mode_i, mode_l, mode_R);
     }
     free(path_strings);
     return 0;
