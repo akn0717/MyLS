@@ -79,16 +79,60 @@ char* time_parsing(time_t time)
 // that's yours
 void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mode_R)
 {
+    struct stat statbuf;
+    lstat(path_name, &statbuf);
+
+    if (S_ISDIR(statbuf.st_mode) == 0)
+    {
+        if (mode_l || mode_i)
+        {
+            if (mode_i)
+            {
+                printf("%ld\t", statbuf.st_ino);
+            }
+            if (mode_l)
+            {
+                print_permission(statbuf.st_mode);
+
+                char *user_name = get_username(statbuf.st_uid);
+                char *group_name = get_groupname(statbuf.st_gid);
+
+                char *time = time_parsing(statbuf.st_mtim.tv_sec);
+                printf("\t%ld\t%s\t%s\t%5ld\t%s\t", statbuf.st_nlink, user_name, group_name, statbuf.st_size, time);
+
+                free(user_name);
+                free(group_name);
+                free(time);
+            }
+                
+        }
+        printf("%s", path_name);
+        if (mode_l && S_ISLNK(statbuf.st_mode))
+        {
+            char buffer[MAX_SIZE] = "";
+            ssize_t len;
+            if ((len = readlink(path_name, buffer, MAX_SIZE - 1)) == -1)
+            {
+                printf(" ERROR: Cannot get symbolic link path");
+            }
+            else
+            {
+                buffer[len] = '\0';
+                printf(" -> %s", buffer);
+            }
+        }
+        printf("\n");
+        return;
+    }
     if (depth >= 1)
     {
         printf("\n");
         printf("%s:\n", path_name);
     }
-    
     struct dirent **name_list;
     int n = scandir(path_name, &name_list, NULL, alphasort);
-    struct stat statbuf;
-
+    
+    
     for (int i=0;i<n;++i)
     {
         if (name_list[i]->d_name[0] !=  '.')
@@ -189,10 +233,8 @@ void extract_wildcard(char ** paths, int *paths_size, int *max_paths_size, char 
             char *buffer = strdup(globbuf.gl_pathv[i]);
             append(paths, paths_size, max_paths_size, buffer);
         }
-        printf("\n");
         globfree(&globbuf);
-    } else 
-        printf("Error: glob()\n");
+    } else printf("ERROR: glob\n");
 }
 
 int parsing(int argc, 
@@ -238,6 +280,7 @@ int main(int argc, char **argv)
     parsing(argc, argv, &mode_i, 
             &mode_l, &mode_R, path_strings, 
             &paths_size, &max_paths_size);
+
     if (paths_size > 0)
     {
         for (int i=0;i<paths_size;++i)
