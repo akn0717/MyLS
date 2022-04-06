@@ -8,6 +8,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <unistd.h>
+#include <glob.h>
 
 #define MAX_SIZE 1024
 
@@ -75,7 +76,7 @@ char* time_parsing(time_t time)
     return str_time;
 }
 
-
+// that's yours
 void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mode_R)
 {
     if (depth >= 1)
@@ -167,6 +168,33 @@ void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mo
     return;
 }
 
+void append(char **paths, int *paths_size, int *max_paths_size, char *path)
+{
+    if((*paths_size)+1 > (*max_paths_size))
+    {
+        paths = realloc(paths, 2*(*max_paths_size));
+        (*max_paths_size) = (*max_paths_size) * 2;
+    }
+    paths[*paths_size] = path;
+    ++(*paths_size);
+}
+
+void extract_wildcard(char ** paths, int *paths_size, int *max_paths_size, char *path)
+{
+    int i=0;
+    glob_t globbuf;
+
+    if (!glob(path, 0, NULL, &globbuf)) {
+        for (i=0;  i <globbuf.gl_pathc; i++) {
+            char *buffer = strdup(globbuf.gl_pathv[i]);
+            append(paths, paths_size, max_paths_size, buffer);
+        }
+        printf("\n");
+        globfree(&globbuf);
+    } else 
+        printf("Error: glob()\n");
+}
+
 int parsing(int argc, 
             char **argv, 
             int *mode_i, 
@@ -192,12 +220,7 @@ int parsing(int argc,
             }
             else
             {
-                if(paths_size+1 > max_paths_size){
-                    paths = realloc(paths, 2*(*max_paths_size));
-                    (*max_paths_size) = (*max_paths_size) * 2;
-                }
-                paths[*paths_size] = argv[i];
-                ++(*paths_size);
+                extract_wildcard(paths, paths_size, max_paths_size, argv[i]);
             }
         }
     }
