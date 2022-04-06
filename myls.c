@@ -7,6 +7,9 @@
 #include <time.h>
 #include <pwd.h>
 #include <grp.h>
+#include <unistd.h>
+
+#define MAX_SIZE 1024
 
 char* path_join(char* current_path, char* file_name)
 {
@@ -89,11 +92,13 @@ void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mo
     {
         if (name_list[i]->d_name[0] !=  '.')
         {
+            char *path_file = path_join(path_name, name_list[i]->d_name);
+
             if (mode_l || mode_i)
             {
-                char *path_file = path_join(path_name, name_list[i]->d_name);
                 
-                stat(path_file, &statbuf);
+                
+                lstat(path_file, &statbuf);
                 if (mode_i)
                 {
                     printf("%ld\t", name_list[i]->d_ino);
@@ -112,17 +117,32 @@ void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mo
                     free(group_name);
                     free(time);
                 }
-                free(path_file);
+                
             }
             printf("%s", name_list[i]->d_name);
             if (mode_l || i==n-1) 
             {
+                if (mode_l && S_ISLNK(statbuf.st_mode))
+                {
+                    char buffer[MAX_SIZE] = "";
+                    ssize_t len;
+                    if ((len = readlink(path_file, buffer, MAX_SIZE - 1)) == -1)
+                    {
+                        printf("ERROR: Cannot get symbolic link path\n");
+                    }
+                    else
+                    {
+                        buffer[len] = '\0';
+                        printf(" -> %s", buffer);
+                    }
+                }
                 printf("\n");
             }
             else if (!mode_l && i!=n-1)
             {
                 printf("\t");
             }
+            free(path_file);
         }
     }
 
