@@ -256,7 +256,7 @@ int parsing(int argc,
         size_t length = strlen(argv[i]);
 
         //parsing options
-        if (argv[i][0] == '-')
+        if (length > 1 && argv[i][0] == '-')
         {
             for (int j=1; j < length; j++)
             {
