@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/myls",
-            "args": ["-i", "."],
+            "args": ["-iRl", "*"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
