@@ -166,6 +166,8 @@ void get_current_info(char *path, int mode_i, int mode_l, int mode_R, int mode_H
             char *path_file = path_join(path, name_list[i]->d_name);
 
             print_file_info(path_file, name_list[i]->d_name, mode_i, mode_l, mode_R);
+
+            free(path_file);
         }
     }
 
@@ -186,6 +188,12 @@ void get_current_info(char *path, int mode_i, int mode_l, int mode_R, int mode_H
             }
         }
     }
+
+    for (int i=0;i<n;++i)
+    {
+        free(name_list[i]);
+    }
+    free(name_list);
     return;
 }
 
