@@ -52,3 +52,7 @@ Mkfile.old
 dkms.conf
 myls
 lets-talk
+lets-talk
+.gitignore
+a/link_testfile.txt
+a/link

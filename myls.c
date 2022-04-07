@@ -132,7 +132,7 @@ int isFolder(char* path)
 {
     struct stat statbuf;
     lstat(path, &statbuf);
-    return (S_ISDIR(statbuf.st_mode));
+    return (S_ISDIR(statbuf.st_mode) != 0);
 }
 
 int isValid(char *path)
@@ -259,8 +259,8 @@ void bubble_sort(char **argv, int l,int r)
 {
     for (int i=l;i<=r;++i)
         for (int j = i+1; j <= r;++j)
-        {
-            if (isFolder()strcmp(argv[i],argv[j]) == 1)
+        {   
+            if ((isFolder(argv[i]) && !isFolder(argv[j])) || (!(isFolder(argv[i]) ^ isFolder(argv[j])) && strcmp(argv[i],argv[j]) > 0))
             {
                 char* temp = argv[i];
                 argv[i] = argv[j];
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
     int paths_size = 0;
     char *path_strings[MAX_SIZE];
     memset(path_strings, 0, sizeof(char*) * MAX_SIZE);
-
+    
     if (parsing(argc, argv, &mode_i, 
             &mode_l, &mode_R, path_strings, 
             &paths_size))
@@ -294,16 +294,10 @@ int main(int argc, char **argv)
     {
         for (int i=0;i<paths_size;++i)
         {
-            if (isValid(path_strings[i]))
-            {
-
-                get_current_info(path_strings[i], mode_i, mode_l, mode_R, mode_H);
-            }
-            else 
-
+            get_current_info(path_strings[i], mode_i, mode_l, mode_R, mode_H);
             if (i+1 < paths_size)
             {
-                if ((isValid(path_strings[i]) && isFolder(path_strings[i])) || (isValid(path_strings[i+1]) && isFolder(path_strings[i+1])))
+                if (isFolder(path_strings[i+1]))
                 {
                     printf("\n");
                 }
