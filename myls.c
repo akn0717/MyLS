@@ -9,18 +9,24 @@
 #include <grp.h>
 #include <unistd.h>
 #include <glob.h>
+#include <libgen.h>
 
 #define MAX_SIZE 1024
 
 char* path_join(char* current_path, char* file_name)
 {
-    int m = strlen(current_path) + strlen(file_name) + 1;
-    char * path_file = malloc(sizeof(char) * (m+1));
-    memset(path_file, 0, m);
+    int s1 = strlen(current_path);
+    int s2 = strlen(file_name);
+    int s = s1 + s2;
+    if (current_path[s1]!='/') ++s;
+    char * path_file = (char*) malloc(sizeof(char) * s + 1);
+    memset(path_file, 0, s);
+
     strcat(path_file, current_path);
-    strcat(path_file,"/");
+    if (path_file[s1] != '/') strcat(path_file,"/");
+    
     strcat(path_file, file_name);
-    path_file[m] = '\0';
+    path_file[s] = '\0';
     return path_file;
 }
 
@@ -76,118 +82,90 @@ char* time_parsing(time_t time)
     return str_time;
 }
 
-// that's yours
-void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mode_R)
+void print_file_info(char *path, char* file_name, int mode_i, int mode_l, int mode_R)
 {
     struct stat statbuf;
-    lstat(path_name, &statbuf);
+    lstat(path, &statbuf);
 
-    if (S_ISDIR(statbuf.st_mode) == 0)
+    if (mode_i) printf("%ld\t", statbuf.st_ino);
+
+    if (mode_l)
     {
-        if (mode_l || mode_i)
+        print_permission(statbuf.st_mode);
+
+        char *user_name = get_username(statbuf.st_uid);
+        char *group_name = get_groupname(statbuf.st_gid);
+
+        char *time = time_parsing(statbuf.st_mtim.tv_sec);
+        printf("\t%ld\t%s\t%s\t%5ld\t%s\t", statbuf.st_nlink, user_name, group_name, statbuf.st_size, time);
+
+        free(user_name);
+        free(group_name);
+        free(time);
+    }
+
+    if (file_name==NULL)
+    {
+        file_name = basename(path);
+    }
+
+    printf("%s", file_name);
+
+    if (mode_l && S_ISLNK(statbuf.st_mode))
+    {
+        char buffer[MAX_SIZE];
+        ssize_t len;
+        if ((len = readlink(path, buffer, MAX_SIZE - 1)) == -1)
         {
-            if (mode_i)
-            {
-                printf("%ld\t", statbuf.st_ino);
-            }
-            if (mode_l)
-            {
-                print_permission(statbuf.st_mode);
-
-                char *user_name = get_username(statbuf.st_uid);
-                char *group_name = get_groupname(statbuf.st_gid);
-
-                char *time = time_parsing(statbuf.st_mtim.tv_sec);
-                printf("\t%ld\t%s\t%s\t%5ld\t%s\t", statbuf.st_nlink, user_name, group_name, statbuf.st_size, time);
-
-                free(user_name);
-                free(group_name);
-                free(time);
-            }
-                
+            printf(" ERROR: Cannot get symbolic link path");
         }
-        printf("%s", path_name);
-        if (mode_l && S_ISLNK(statbuf.st_mode))
+        else
         {
-            char buffer[MAX_SIZE] = "";
-            ssize_t len;
-            if ((len = readlink(path_name, buffer, MAX_SIZE - 1)) == -1)
-            {
-                printf(" ERROR: Cannot get symbolic link path");
-            }
-            else
-            {
-                buffer[len] = '\0';
-                printf(" -> %s", buffer);
-            }
+            buffer[len] = '\0';
+            printf(" -> %s", buffer);
         }
-        printf("\n");
+    }
+    printf("\n");
+}
+
+int isFolder(char* path)
+{
+    struct stat statbuf;
+    lstat(path, &statbuf);
+    return (S_ISDIR(statbuf.st_mode) != 0);
+}
+
+int isValid(char *path)
+{
+    struct stat statbuf;
+    int error = lstat(path, &statbuf);
+    return (error==0);
+}
+
+void get_current_info(char *path, int mode_i, int mode_l, int mode_R, int mode_H)
+{
+    if (isFolder(path) == 0)
+    {
+        print_file_info(path, NULL, mode_i, mode_l, mode_R);
         return;
     }
-    if (depth >= 1)
+
+    if (mode_H)
     {
-        printf("\n");
-        printf("%s:\n", path_name);
+        printf("%s:\n", path);
     }
+
     struct dirent **name_list;
-    int n = scandir(path_name, &name_list, NULL, alphasort);
+    int n = scandir(path, &name_list, NULL, alphasort);
     
     
     for (int i=0;i<n;++i)
     {
         if (name_list[i]->d_name[0] !=  '.')
         {
-            char *path_file = path_join(path_name, name_list[i]->d_name);
+            char *path_file = path_join(path, name_list[i]->d_name);
 
-            if (mode_l || mode_i)
-            {
-                
-                
-                lstat(path_file, &statbuf);
-                if (mode_i)
-                {
-                    printf("%ld\t", name_list[i]->d_ino);
-                }
-                if (mode_l)
-                {
-                    print_permission(statbuf.st_mode);
-
-                    char *user_name = get_username(statbuf.st_uid);
-                    char *group_name = get_groupname(statbuf.st_gid);
-
-                    char *time = time_parsing(statbuf.st_mtim.tv_sec);
-                    printf("\t%ld\t%s\t%s\t%5ld\t%s\t", statbuf.st_nlink, user_name, group_name, statbuf.st_size, time);
-
-                    free(user_name);
-                    free(group_name);
-                    free(time);
-                }
-                
-            }
-            printf("%s", name_list[i]->d_name);
-            if (mode_l || i==n-1) 
-            {
-                if (mode_l && S_ISLNK(statbuf.st_mode))
-                {
-                    char buffer[MAX_SIZE] = "";
-                    ssize_t len;
-                    if ((len = readlink(path_file, buffer, MAX_SIZE - 1)) == -1)
-                    {
-                        printf("ERROR: Cannot get symbolic link path\n");
-                    }
-                    else
-                    {
-                        buffer[len] = '\0';
-                        printf(" -> %s", buffer);
-                    }
-                }
-                printf("\n");
-            }
-            else if (!mode_l && i!=n-1)
-            {
-                printf("\t");
-            }
-            free(path_file);
+            print_file_info(path_file, name_list[i]->d_name, mode_i, mode_l, mode_R);
         }
     }
 
@@ -198,43 +176,42 @@ void get_current_info(int depth, char *path_name, int mode_i, int mode_l, int mo
             if (name_list[i]->d_name[0] !=  '.')
             {
                 
-                char * sub_folder = path_join(path_name, name_list[i]->d_name);
-
-                stat(sub_folder, &statbuf);
-                if (S_ISDIR(statbuf.st_mode))
+                char * path_file = path_join(path, name_list[i]->d_name);
+                if (isFolder(path_file))
                 {
-                    get_current_info(depth + 1, sub_folder, mode_i, mode_l, mode_R);
+                    printf("\n");
+                    get_current_info(path_file, mode_i, mode_l, mode_R, mode_H);
                 }
-                free(sub_folder);
+                free(path_file);
             }
         }
     }
     return;
 }
 
-void append(char **paths, int *paths_size, int *max_paths_size, char *path)
+void append(char **paths, int *paths_size, char *path)
 {
-    if((*paths_size)+1 > (*max_paths_size))
-    {
-        paths = realloc(paths, 2*(*max_paths_size));
-        (*max_paths_size) = (*max_paths_size) * 2;
-    }
     paths[*paths_size] = path;
     ++(*paths_size);
 }
 
-void extract_wildcard(char ** paths, int *paths_size, int *max_paths_size, char *path)
+int extract_wildcard(char ** paths, int *paths_size, char *path)
 {
     int i=0;
     glob_t globbuf;
-
+    char *buffer = NULL;
     if (!glob(path, 0, NULL, &globbuf)) {
         for (i=0;  i <globbuf.gl_pathc; i++) {
-            char *buffer = strdup(globbuf.gl_pathv[i]);
-            append(paths, paths_size, max_paths_size, buffer);
+            buffer = strdup(globbuf.gl_pathv[i]);
+            append(paths, paths_size, buffer);
         }
         globfree(&globbuf);
-    } else printf("ERROR: glob\n");
+    } else 
+    {
+        append(paths, paths_size, buffer);
+        return 1;
+    }
+    return 0;
 }
 
 int parsing(int argc, 
@@ -243,8 +220,7 @@ int parsing(int argc,
             int *mode_l, 
             int *mode_R, 
             char **paths, 
-            int *paths_size,
-            int *max_paths_size)
+            int *paths_size)
 {
     if (argc > 1)
     {
@@ -253,20 +229,44 @@ int parsing(int argc,
             size_t length = strlen(argv[i]);
             if (argv[i][0] == '-')
             {
-                for (int j=0; j < length; j++)
+                for (int j=1; j < length; j++)
                 {
                     if(argv[i][j] == 'i') *mode_i = 1;
                     else if(argv[i][j] == 'l') *mode_l = 1;
                     else if(argv[i][j] == 'R') *mode_R = 1;
+                    else 
+                    {
+                        fprintf(stderr, "ERROR: Unsupported Option\n");
+                        return 1;
+                    }
                 }
             }
             else
             {
-                extract_wildcard(paths, paths_size, max_paths_size, argv[i]);
+                if (!isValid(argv[i]))
+                {
+                    fprintf(stderr, "ERROR: Nonexistent files or directories\n");
+                    return 1;
+                }
+                append(paths, paths_size, argv[i]);
             }
         }
     }
     return 0;
+}
+
+void bubble_sort(char **argv, int l,int r)
+{
+    for (int i=l;i<=r;++i)
+        for (int j = i+1; j <= r;++j)
+        {   
+            if ((isFolder(argv[i]) && !isFolder(argv[j])) || (!(isFolder(argv[i]) ^ isFolder(argv[j])) && strcmp(argv[i],argv[j]) > 0))
+            {
+                char* temp = argv[i];
+                argv[i] = argv[j];
+                argv[j] = temp;
+            }
+        }
 }
 
 int main(int argc, char **argv)
@@ -274,24 +274,39 @@ int main(int argc, char **argv)
     int mode_i = 0; 
     int mode_l = 0;
     int mode_R = 0;
+    int mode_H = 0;
     int paths_size = 0;
-    char **path_strings = malloc(sizeof(char*)*1);
-    int max_paths_size = 1;
-    parsing(argc, argv, &mode_i, 
+    char *path_strings[MAX_SIZE];
+    memset(path_strings, 0, sizeof(char*) * MAX_SIZE);
+    
+    if (parsing(argc, argv, &mode_i, 
             &mode_l, &mode_R, path_strings, 
-            &paths_size, &max_paths_size);
+            &paths_size))
+            {
+                return 1;
+            }
+            
+    bubble_sort(path_strings, 0, paths_size-1);
+
+    if (mode_R || paths_size > 1) mode_H = 1;
 
     if (paths_size > 0)
     {
         for (int i=0;i<paths_size;++i)
         {
-            get_current_info(0, path_strings[i], mode_i, mode_l, mode_R);
+            get_current_info(path_strings[i], mode_i, mode_l, mode_R, mode_H);
+            if (i+1 < paths_size)
+            {
+                if (isFolder(path_strings[i+1]))
+                {
+                    printf("\n");
+                }
+            }
         }
     }
     else 
     {
-        get_current_info(0, ".", mode_i, mode_l, mode_R);
+        get_current_info(".", mode_i, mode_l, mode_R, mode_H);
     }
-    free(path_strings);
     return 0;
 }
