@@ -1,4 +1,3 @@
-//https://stackoverflow.com/questions/10323060/printing-file-permissions-like-ls-l-using-stat2-in-c
 #include <dirent.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -18,20 +17,22 @@ char* path_join(char* current_path, char* file_name)
     int s1 = strlen(current_path);
     int s2 = strlen(file_name);
     int s = s1 + s2;
-    if (current_path[s1]!='/') ++s;
+    if (current_path[s1-1]!='/') ++s;
     char * path_file = (char*) malloc(sizeof(char) * s + 1);
     memset(path_file, 0, s);
 
     strcat(path_file, current_path);
-    if (path_file[s1] != '/') strcat(path_file,"/");
+    if (path_file[s1-1] != '/') strcat(path_file,"/");
     
     strcat(path_file, file_name);
     path_file[s] = '\0';
     return path_file;
 }
 
+//References: https://stackoverflow.com/questions/10323060/printing-file-permissions-like-ls-l-using-stat2-in-c
 void print_permission(mode_t mode)
 {
+    
     printf("%c", S_ISDIR(mode) ? 'd' : '-');
     printf("%c", (mode & S_IRUSR) ? 'r' : '-');
     printf("%c", (mode & S_IWUSR) ? 'w' : '-');
@@ -303,18 +304,10 @@ int main(int argc, char **argv)
         for (int i=0;i<paths_size;++i)
         {
             get_current_info(path_strings[i], mode_i, mode_l, mode_R, mode_H);
-            if (i+1 < paths_size)
-            {
-                if (isFolder(path_strings[i+1]))
-                {
-                    printf("\n");
-                }
-            }
+            if (i+1 < paths_size && isFolder(path_strings[i+1])) printf("\n");
         }
     }
-    else 
-    {
-        get_current_info(".", mode_i, mode_l, mode_R, mode_H);
-    }
+    else get_current_info(".", mode_i, mode_l, mode_R, mode_H);
+ 
     return 0;
 }
